@@ -83,6 +83,9 @@ public class AgentInstaller {
   private static final String STRICT_CONTEXT_STRESSOR_MILLIS =
       "otel.javaagent.testing.strict-context-stressor-millis";
 
+  private static final String IBM_J9_DISABLE_RETRANSFORMATION =
+      "otel.experimental.ibmj9.disable-retransformation";
+
   private static final Map<String, List<Runnable>> classLoadCallbacks = new HashMap<>();
 
   private static volatile boolean instrumentationInstalled;
@@ -194,6 +197,16 @@ public class AgentInstaller {
     // note that this also finalizes the storage - ContextStorage.addWrapper() calls made after
     // this point are ignored
     ContextStorage.get();
+
+    // Experimental workaround for legacy IBM J9 VMs that crash during class retransformation.
+    // This is intentionally applied after extensions and debug configuration, immediately before
+    // the main transformer is installed. The default behavior is unchanged.
+    if (Boolean.getBoolean(IBM_J9_DISABLE_RETRANSFORMATION)) {
+      logger.warning(
+          "Experimental IBM J9 compatibility mode: class retransformation is disabled. "
+              + "Already loaded classes will not be instrumented; HTTP/JDBC traces may be incomplete.");
+      agentBuilder = agentBuilder.with(AgentBuilder.RedefinitionStrategy.DISABLED);
+    }
 
     agentBuilder = AgentBuilderUtil.optimize(agentBuilder);
     ClassFileTransformer transformer = agentBuilder.installOn(inst);
