@@ -1,0 +1,46 @@
+name: Build legacy IBM J9 OpenTelemetry Java Agent
+
+on:
+  push:
+    branches: [was-j9-compat-2.32.0]
+    paths:
+      - '.github/workflows/build-ibm-j9-agent.yml'
+      - 'javaagent-tooling/**'
+      - 'javaagent/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-agent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build custom Java agent
+        run: ./gradlew :javaagent:assemble --no-daemon --max-workers=2 --stacktrace
+      - name: Verify jar and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          ls -lah javaagent/build/libs/
+          test -n "$(find javaagent/build/libs -maxdepth 1 -type f -name 'opentelemetry-javaagent-*.jar' -print -quit)"
+          unzip -t javaagent/build/libs/opentelemetry-javaagent-*.jar | tail -1
+          sha256sum javaagent/build/libs/opentelemetry-javaagent-*.jar > javaagent/build/libs/SHA256SUMS
+      - name: Upload IBM J9 test agent
+        uses: actions/upload-artifact@v4
+        with:
+          name: otel-javaagent-ibmj9-2.32.0-uat
+          path: |
+            javaagent/build/libs/opentelemetry-javaagent-*.jar
+            javaagent/build/libs/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
