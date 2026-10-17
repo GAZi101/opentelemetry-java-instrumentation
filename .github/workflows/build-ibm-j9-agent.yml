@@ -31,16 +31,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ls -lah javaagent/build/libs/
-          test -n "$(find javaagent/build/libs -maxdepth 1 -type f -name 'opentelemetry-javaagent-*.jar' -print -quit)"
-          unzip -t javaagent/build/libs/opentelemetry-javaagent-*.jar | tail -1
-          sha256sum javaagent/build/libs/opentelemetry-javaagent-*.jar > javaagent/build/libs/SHA256SUMS
+          agent_jar="javaagent/build/libs/opentelemetry-javaagent-2.32.0.jar"
+          test -s "$agent_jar"
+          ls -lh "$agent_jar"
+          unzip -t "$agent_jar" | tail -1
+          unzip -p "$agent_jar" META-INF/MANIFEST.MF | grep -E '^(Premain-Class|Agent-Class):'
+          (cd javaagent/build/libs && sha256sum opentelemetry-javaagent-2.32.0.jar > SHA256SUMS)
+          cat javaagent/build/libs/SHA256SUMS
       - name: Upload IBM J9 test agent
         uses: actions/upload-artifact@v4
         with:
           name: otel-javaagent-ibmj9-2.32.0-uat
           path: |
-            javaagent/build/libs/opentelemetry-javaagent-*.jar
+            javaagent/build/libs/opentelemetry-javaagent-2.32.0.jar
             javaagent/build/libs/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
