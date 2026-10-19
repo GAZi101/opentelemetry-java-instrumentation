@@ -77,6 +77,13 @@ public class HelperInjector implements Transformer {
   private static final ProtectionDomain PROTECTION_DOMAIN =
       HelperInjector.class.getProtectionDomain();
 
+  // For legacy IBM J9 VMs: class loaders loaded before the agent are not retransformed.
+  // This is opt-in and is scoped to Servlet / Tomcat helper classes only.
+  private static final String IBM_J9_DISABLE_RETRANSFORMATION =
+      "otel.experimental.ibmj9.disable-retransformation";
+  private static final String IBM_J9_EAGER_SERVLET_HELPERS =
+      "otel.experimental.ibmj9.eager-servlet-helpers";
+
   // a hook for static instrumentation used to save additional classes created by the agent
   // see https://github.com/open-telemetry/opentelemetry-java-contrib/tree/main/static-instrumenter
   @Nullable private static volatile HelperInjectorListener helperInjectorListener;
@@ -308,6 +315,29 @@ public class HelperInjector implements Transformer {
       // from the loadClass method of the class loader.
       if (isBootClassLoader(classLoader)) {
         injectBootstrapClassLoader(classnameToBytes);
+      } else if (Boolean.getBoolean(IBM_J9_DISABLE_RETRANSFORMATION)
+          && Boolean.getBoolean(IBM_J9_EAGER_SERVLET_HELPERS)
+          && isLegacyServletHelperRequest()) {
+        // The normal helper injection registers bytes for the instrumented class loader
+        // and loads them lazily through instrumentation of ClassLoader.loadClass().
+        // That class loader may already have been loaded on IBM J9, and so cannot be
+        // instrumented when retransformation is disabled. Define the helpers now.
+        // The feature is explicitly opt-in to limit the risk of class loader side effects.
+        try {
+          ClassInjector.UsingReflection.of(classLoader).injectRaw(resolve(classnameToBytes));
+          logger.log(
+              FINE,
+              "IBM J9 eager helper injection completed for {0} into {1}",
+              new Object[] {requestingName, classLoader});
+        } catch (RuntimeException | LinkageError error) {
+          logger.log(
+              SEVERE,
+              "IBM J9 eager helper injection failed for {0} into {1}",
+              new Object[] {requestingName, classLoader},
+              error);
+          // Don't fail Tomcat startup just because the experimental workaround failed.
+          // Request instrumentation may still fail with NoClassDefFoundError.
+        }
       }
     } catch (RuntimeException e) {
       if (logger.isLoggable(SEVERE)) {
@@ -320,6 +350,13 @@ public class HelperInjector implements Transformer {
       }
       throw e;
     }
+  }
+
+  private boolean isLegacyServletHelperRequest() {
+    return "tomcat".equals(requestingName)
+        || "tomcat-7.0".equals(requestingName)
+        || "servlet".equals(requestingName)
+        || "servlet-3.0".equals(requestingName);
   }
 
   public void injectHelperClasses(
