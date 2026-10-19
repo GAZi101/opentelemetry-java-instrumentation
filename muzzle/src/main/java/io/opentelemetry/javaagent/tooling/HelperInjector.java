@@ -324,7 +324,8 @@ public class HelperInjector implements Transformer {
         // instrumented when retransformation is disabled. Define the helpers now.
         // The feature is explicitly opt-in to limit the risk of class loader side effects.
         try {
-          ClassInjector.UsingReflection.of(classLoader).injectRaw(resolve(classnameToBytes));
+          new ClassInjector.UsingReflection(classLoader, PROTECTION_DOMAIN)
+              .injectRaw(resolve(classnameToBytes));
           logger.log(
               FINE,
               "IBM J9 eager helper injection completed for {0} into {1}",
