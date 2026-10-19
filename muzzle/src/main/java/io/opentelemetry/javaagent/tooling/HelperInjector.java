@@ -353,13 +353,6 @@ public class HelperInjector implements Transformer {
     }
   }
 
-  private boolean isLegacyServletHelperRequest() {
-    return "tomcat".equals(requestingName)
-        || "tomcat-7.0".equals(requestingName)
-        || "servlet".equals(requestingName)
-        || "servlet-3.0".equals(requestingName);
-  }
-
   public void injectHelperClasses(
       ClassLoader classLoader, Map<String, Supplier<byte[]>> classNameToBytes) {
     if (classNameToBytes.isEmpty()) {
@@ -379,6 +372,13 @@ public class HelperInjector implements Transformer {
       HelperClass injector = new HelperClass(entry.getValue());
       map.put(entry.getKey(), injector);
     }
+  }
+
+  private boolean isLegacyServletHelperRequest() {
+    return "tomcat".equals(requestingName)
+        || "tomcat-7.0".equals(requestingName)
+        || "servlet".equals(requestingName)
+        || "servlet-3.0".equals(requestingName);
   }
 
   private static Map<String, byte[]> resolve(Map<String, Supplier<byte[]>> classes) {
