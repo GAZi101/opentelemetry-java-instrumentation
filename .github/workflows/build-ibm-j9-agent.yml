@@ -2,10 +2,11 @@ name: Build legacy IBM J9 OpenTelemetry Java Agent
 
 on:
   push:
-    branches: [was-j9-compat-2.32.0]
+    branches: [was-j9-compat-2.32.0, ibmj9-tomcat7-eager-helpers-2.32.0]
     paths:
       - '.github/workflows/build-ibm-j9-agent.yml'
       - 'javaagent-tooling/**'
+      - 'muzzle/**'
       - 'javaagent/**'
   workflow_dispatch:
 
@@ -41,7 +42,7 @@ jobs:
       - name: Upload IBM J9 test agent
         uses: actions/upload-artifact@v4
         with:
-          name: otel-javaagent-ibmj9-2.32.0-uat
+          name: otel-javaagent-ibmj9-tomcat7-2.32.0-uat
           path: |
             javaagent/build/libs/opentelemetry-javaagent-2.32.0.jar
             javaagent/build/libs/SHA256SUMS
